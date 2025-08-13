@@ -56,10 +56,10 @@ transaction = {
 
 # Helper Functions
 def validate_choice(prompt, choices):
-    value = input(prompt).strip()
+    value = input(prompt).strip().lower()
     while value not in choices:
         print(f"Pilihan tidak valid. Pilihan yang tersedia: {', '.join(choices)}")
-        value = input(prompt).strip()
+        value = input(prompt).strip().lower()
     return value
 
 def validate_date(prompt):
@@ -67,12 +67,12 @@ def validate_date(prompt):
         value = input(prompt).strip()
         try:
             tahun, bulan, hari = map(int, value.split("-"))
-            return date(tahun, bulan, hari).date()
+            return date(tahun, bulan, hari)
         except (ValueError, TypeError):
             print("Format tanggal harus YYYY-MM-DD.")
 
 def validate_existing_id(prompt, data_dict):
-    value = input(prompt).strip()
+    value = input(prompt).strip().lower()
     while value not in data_dict:
         print("ID tidak ditemukan!")
         value = input(prompt).strip()
@@ -98,7 +98,7 @@ def readData():
 
         menu = validate_choice("Masukkan pilihan (1/2/3): ", ["1", "2", "3"])
 
-        # Pilihan 1
+        # Pilihan 1 - Tampilkan semua data
         if menu == "1":
             print('''\nTabel yang ingin ditampilkan:
 1. Customers
@@ -106,39 +106,44 @@ def readData():
 3. Transaction
 4. Kembali ke Menu Read''')
 
-            tabel = validate_choice("Masukkan pilihan (1/2/3/4): ", ["1", "2", "3", "4"])
-            if tabel == "4":
+            tabel_pilih = validate_choice("Masukkan pilihan (1/2/3/4): ", ["1", "2", "3", "4"])
+            if tabel_pilih == "4":
                 continue
-            elif tabel == "1":
+            elif tabel_pilih == "1":
                 tabel = customers
-            elif tabel == "2":
+            elif tabel_pilih == "2":
                 tabel = savingaccount
-            elif tabel == "3":
+            elif tabel_pilih == "3":
                 tabel = transaction
 
             if tabel:
                 table_data = []
                 for key, value in tabel.items():
-                    row = {"ID": key}
+                    row = {"id": key}
                     if isinstance(value, dict):
                         row.update(value)
-                    else:
-                        row["Value"] = value
                     table_data.append(row)
 
-                # Sorting berdasarkan kolom pilihan user
-                kolom_list = list(table_data[0].keys())
-                print(f"Kolom tersedia: {', '.join(kolom_list)}")
-                kolom_sort = validate_choice("Masukkan nama kolom untuk sort: ", kolom_list)
-                urutan = validate_choice("Urutkan Ascending (A) atau Descending (D)? ", ["A", "D"])
-                reverse_flag = True if urutan == "D" else False
+                if table_data:
+                    # Sorting 
+                    kolom_list = list(table_data[0].keys())
+                    print(f"Kolom tersedia: {', '.join(kolom_list)}")
+                    kolom_input = validate_choice(
+                        "Masukkan nama kolom untuk sort: ",
+                        [k.lower() for k in kolom_list]
+                    )
+                    kolom_sort = next(k for k in kolom_list if k.lower() == kolom_input)
+                    urutan = validate_choice("Urutkan Ascending (A) atau Descending (D)? ", ["a", "d"]).lower()
+                    reverse_flag = True if urutan == "d" else False
 
-                table_data = sorted(table_data, key=lambda x: x[kolom_sort], reverse=reverse_flag)
-                print(tabulate(table_data, headers="keys", tablefmt="fancy_grid"))
+                    table_data = sorted(table_data, key=lambda x: x[kolom_sort], reverse=reverse_flag)
+                    print(tabulate(table_data, headers="keys", tablefmt="fancy_grid"))
+                else:
+                    print("Data kosong.")
             else:
                 print("Data tidak ditemukan.")
 
-        # Pilihan 2
+        # Pilihan 2 - Tampilkan satu data
         elif menu == "2":
             print('''\nTabel yang ingin diakses:
 1. Customers
@@ -146,30 +151,30 @@ def readData():
 3. Transaction
 4. Kembali ke Menu Read''')
 
-            tabel = validate_choice("Masukkan pilihan (1/2/3/4): ", ["1", "2", "3", "4"])
-            if tabel == "4":
+            tabel_pilih = validate_choice("Masukkan pilihan (1/2/3/4): ", ["1", "2", "3", "4"])
+            if tabel_pilih == "4":
                 continue
-            elif tabel == "1":
+            elif tabel_pilih == "1":
                 tabel = customers
-            elif tabel == "2":
+            elif tabel_pilih == "2":
                 tabel = savingaccount
-            elif tabel == "3":
+            elif tabel_pilih == "3":
                 tabel = transaction
+
 
             if tabel:
                 pk = validate_existing_id("Masukkan primary key: ", tabel)
                 value = tabel[pk]
-                if isinstance(value, dict):
-                    table_data = [{"Field": k, "Value": v} for k, v in value.items()]
-                    print(tabulate(table_data, headers="keys", tablefmt="fancy_grid"))
-                else:
-                    print(tabulate([{"Value": value}], headers="keys", tablefmt="fancy_grid"))
+                table_data = [{"Field": k, "Value": v} for k, v in value.items()]
+                print(tabulate(table_data, headers="keys", tablefmt="fancy_grid"))
+
             else:
                 print("Data tidak ditemukan.")
 
-        # Pilihan 3
+        # Pilihan 3 - Kembali ke menu utama
         elif menu == "3":
             return
+
 
 def createData():
     while True:
@@ -185,46 +190,49 @@ def createData():
 
         if menu == "1":
             tabel = customers
-            fields = ["c_id", "name", "address", "birth date", "phone"]
-
         elif menu == "2":
             tabel = savingaccount
-            fields = ["s_id", "c_id", "open date", "balance", "status"]
-
         elif menu == "3":
             tabel = transaction
-            fields = ["t_id", "s_id", "transaction time", "transaction type", "transaction amount"]
+
+        kolom = next(iter(tabel.values()))
+        kolom_list = list(kolom.keys())
+
+        # Minta primary key (key dict)
+        pk = input("Masukkan ID: ").strip()
+        if pk in tabel:
+            print("ID sudah ada!")
+            continue
 
         data_baru = {}
+        for kolom in kolom_list:
+            if "tanggal lahir" in kolom or "open date" in kolom or "transaction time" in kolom:
+                nilai = validate_date(f"Masukkan {kolom}: ")
 
-        for field in fields:
-            if "date" in field or "time" in field:
-                nilai = validate_date(f"Masukkan {field}: ")
+            elif kolom == "c_id" and menu == "2":
+                nilai = validate_existing_id(f"Masukkan {kolom}: ", customers)
 
-            elif field == "c_id" and menu == "2":
-                nilai = validate_existing_id(f"Masukkan {field}: ", customers)
+            elif kolom == "s_id" and menu == "3":
+                nilai = validate_existing_id(f"Masukkan {kolom}: ", savingaccount)
 
-            elif field == "s_id" and menu == "3":
-                nilai = validate_existing_id(f"Masukkan {field}: ", savingaccount)
+            elif kolom == "transaction type":
+                nilai = validate_choice(f"Masukkan {kolom} (debit/credit): ", ["debit", "credit"])
 
-            elif field == "transaction type":
-                nilai = validate_choice(f"Masukkan {field} (debit/credit): ", ["debit", "credit"])
-
-            elif field == "transaction amount":
-                jumlah = validate_amount(f"Masukkan {field}: ")
+            elif kolom == "transaction amount":
+                jumlah = validate_amount(f"Masukkan {kolom}: ")
                 if data_baru.get("transaction type", "").lower() == "debit":
                     saldo_sekarang = savingaccount[data_baru["s_id"]]["balance"]
                     while jumlah > saldo_sekarang:
                         print(f"Saldo tidak cukup. Saldo saat ini: {saldo_sekarang}")
-                        jumlah = validate_amount(f"Masukkan {field}: ")
+                        jumlah = validate_amount(f"Masukkan {kolom}: ")
                 nilai = jumlah
 
             else:
-                nilai = input(f"Masukkan {field}: ").strip()
+                nilai = input(f"Masukkan {kolom}: ").strip()
 
-            data_baru[field] = nilai
+            data_baru[kolom] = nilai
 
-        tabel[data_baru[fields[0]]] = data_baru
+        tabel[pk] = data_baru
         print("Data berhasil ditambahkan!")
 
 def updateData():
@@ -274,7 +282,7 @@ def updateData():
 
         nilai_baru = input("Masukkan nilai baru: ").strip()
 
-        # === Khusus untuk transaksi ===
+        # Khusus untuk transaksi
         if tabel == "3":
             old_trans = transaction[pk]
             s_id_lama = old_trans["s_id"]
